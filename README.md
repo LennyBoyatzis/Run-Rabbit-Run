@@ -1,3 +1,3 @@
 # Run Rabbit Run
 
-![alt tag](./giphy.gif)
+![alt tag](./images/giphy.gif)
