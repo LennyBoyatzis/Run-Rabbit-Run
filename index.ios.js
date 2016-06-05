@@ -16,6 +16,7 @@ import {
 } from 'react-native'
 
 import haversine from 'haversine'
+import pick from 'lodash/pick'
 
 const { width, height } = Dimensions.get('window')
 
@@ -34,19 +35,16 @@ class MapViewProject extends Component {
   componentDidMount() {
     StatusBarIOS.setStyle('light-content')
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const initialPosition = JSON.stringify(position)
-      },
+      (position) => {},
       (error) => alert(error.message),
       {enableHighAccuracy: true, timeout: 20000, maximumAge: 1000}
     )
     this.watchID = navigator.geolocation.watchPosition((position) => {
       const { routeCoordinates, distanceTravelled } = this.state
-      const lastPosition = JSON.stringify(position);
       const newLatLngs = {latitude: position.coords.latitude, longitude: position.coords.longitude }
-
+      const positionLatLngs = pick(position.coords, ['latitude', 'longitude'])
       this.setState({
-        routeCoordinates: routeCoordinates.concat(lastPosition),
+        routeCoordinates: routeCoordinates.concat(positionLatLngs),
         distanceTravelled: distanceTravelled + this.calcDistance(newLatLngs),
         prevLatLng: newLatLngs
       })
@@ -62,17 +60,6 @@ class MapViewProject extends Component {
     return (haversine(prevLatLng, newLatLng) || 0)
   }
 
-  generateRouteCoordinates() {
-    return this.state.routeCoordinates.reduce((acc, coord) => {
-      try {
-        const { latitude, longitude, speed } = JSON.parse(coord).coords
-        return acc.concat({ latitude: latitude, longitude: longitude })
-      } catch (error) {
-        console.log("error", error)
-      }
-    }, [])
-  }
-
   render() {
     return (
       <View style={styles.container}>
@@ -82,7 +69,7 @@ class MapViewProject extends Component {
           showsUserLocation={true}
           followUserLocation={true}
           overlays={[{
-            coordinates: this.generateRouteCoordinates(),
+            coordinates: this.state.routeCoordinates,
             strokeColor: '#19B5FE',
             lineWidth: 10,
           }]}
