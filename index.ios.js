@@ -4,7 +4,7 @@
  * @flow
  */
 
-import React, { Component } from 'react';
+import React, { Component } from 'react'
 import {
   AppRegistry,
   StyleSheet,
@@ -15,6 +15,8 @@ import {
   StatusBarIOS
 } from 'react-native'
 
+import haversine from 'haversine'
+
 const { width, height } = Dimensions.get('window')
 
 class MapViewProject extends Component {
@@ -23,9 +25,9 @@ class MapViewProject extends Component {
     super(props)
 
     this.state = {
-      initialPosition: 'unknown',
-      lastPosition: 'unknown',
-      routeCoordinates: []
+      routeCoordinates: [],
+      distanceTravelled: 0,
+      prevLatLng: {}
     }
   }
 
@@ -33,22 +35,20 @@ class MapViewProject extends Component {
     StatusBarIOS.setStyle('light-content')
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        var initialPosition = JSON.stringify(position)
-        this.setState({initialPosition})
+        const initialPosition = JSON.stringify(position)
       },
       (error) => alert(error.message),
       {enableHighAccuracy: true, timeout: 20000, maximumAge: 1000}
     )
     this.watchID = navigator.geolocation.watchPosition((position) => {
-      let lastPosition = JSON.stringify(position);
-      if (lastPosition === this.state.lastPosition) {
-        console.log("No Change")
-        return
-      }
-      console.log("Change");
+      const { routeCoordinates, distanceTravelled } = this.state
+      const lastPosition = JSON.stringify(position);
+      const newLatLngs = {latitude: position.coords.latitude, longitude: position.coords.longitude }
+
       this.setState({
-        lastPosition,
-        routeCoordinates: this.state.routeCoordinates.concat(lastPosition)
+        routeCoordinates: routeCoordinates.concat(lastPosition),
+        distanceTravelled: distanceTravelled + this.calcDistance(newLatLngs),
+        prevLatLng: newLatLngs
       })
     });
   }
@@ -57,13 +57,18 @@ class MapViewProject extends Component {
     navigator.geolocation.clearWatch(this.watchID);
   }
 
+  calcDistance(newLatLng) {
+    const { prevLatLng } = this.state
+    return (haversine(prevLatLng, newLatLng) || 0)
+  }
+
   generateRouteCoordinates() {
     return this.state.routeCoordinates.reduce((acc, coord) => {
       try {
-        let { latitude, longitude } = JSON.parse(coord).coords
+        const { latitude, longitude, speed } = JSON.parse(coord).coords
         return acc.concat({ latitude: latitude, longitude: longitude })
-      } catch (e) {
-        return
+      } catch (error) {
+        console.log("error", error)
       }
     }, [])
   }
@@ -72,14 +77,8 @@ class MapViewProject extends Component {
     return (
       <View style={styles.container}>
         <MapView
-          region={{
-            latitude: -33.8820970,
-            longitude: 151.2124680,
-            latitudeDelta: 0.5,
-            longitudeDelta: 0.5
-          }}
-          mapType='satellite'
           style={styles.map}
+          mapType='satellite'
           showsUserLocation={true}
           followUserLocation={true}
           overlays={[{
@@ -88,15 +87,11 @@ class MapViewProject extends Component {
             lineWidth: 10,
           }]}
         />
-        <View style={styles.topBar}><Text style={styles.navText}>Run Rabbit Run</Text></View>
-        <View style={styles.stats}>
-          <View style={styles.statsInfoGroup}>
-            <Text style={styles.statsTextHeader}>DISTANCE</Text>
-            <Text style={styles.statsTextContent}>13.9 km</Text>
-          </View>
-          <View style={styles.statsInfoGroup}>
-            <Text style={styles.statsTextHeader}>TIME</Text>
-            <Text style={styles.statsTextContent}>1hr 30m</Text>
+        <View style={styles.navBar}><Text style={styles.navBarText}>Run Rabbit Run</Text></View>
+        <View style={styles.bottomBar}>
+          <View style={styles.bottomBarGroup}>
+            <Text style={styles.bottomBarHeader}>DISTANCE</Text>
+            <Text style={styles.bottomBarContent}>{parseFloat(this.state.distanceTravelled).toFixed(2)} km</Text>
           </View>
         </View>
       </View>
@@ -111,7 +106,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#F5FCFF',
   },
-  topBar: {
+  navBar: {
     backgroundColor: 'rgba(0,0,0,0.7)',
     height: 64,
     width: width,
@@ -121,7 +116,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0
   },
-  navText: {
+  navBarText: {
     color: '#19B5FE',
     fontSize: 16,
     fontWeight: "700",
@@ -133,7 +128,7 @@ const styles = StyleSheet.create({
     width: width,
     height: height
   },
-  stats: {
+  bottomBar: {
     position: 'absolute',
     height: 100,
     bottom: 0,
@@ -143,15 +138,15 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     flexDirection: 'row'
   },
-  statsInfoGroup: {
+  bottomBarGroup: {
     flex: 1
   },
-  statsTextHeader: {
+  bottomBarHeader: {
     color: '#fff',
     fontWeight: "400",
     textAlign: 'center'
   },
-  statsTextContent: {
+  bottomBarContent: {
     color: '#fff',
     fontWeight: "700",
     fontSize: 18,
@@ -159,6 +154,6 @@ const styles = StyleSheet.create({
     color: '#19B5FE',
     textAlign: 'center'
   },
-});
+})
 
-AppRegistry.registerComponent('MapViewProject', () => MapViewProject);
+AppRegistry.registerComponent('MapViewProject', () => MapViewProject)
